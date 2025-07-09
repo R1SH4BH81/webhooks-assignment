@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GitHub Actions Feed</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #fafafa; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #eee; padding: 24px; }
+        h2 { text-align: center; color: #333; }
+        ul { list-style: none; padding: 0; }
+        li { padding: 12px 0; border-bottom: 1px solid #eee; color: #222; }
+        .timestamp { color: #888; font-size: 0.95em; }
+        .status { text-align: center; color: #666; margin-top: 20px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>GitHub Actions Feed</h2>
+    <ul id="feed"></ul>
+    <p class="status" id="status">Loading...</p>
+</div>
+<script>
+const API_URL = 'http://localhost:5000';
+
+function formatTimestamp(ts) {
+    const date = new Date(ts);
+    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'UTC' };
+    return date.toLocaleString('en-US', options) + ' UTC';
+}
+
+function renderAction(action) {
+    if (action.action === 'PUSH') {
+        return `<b>${action.author}</b> pushed to <b>${action.to_branch}</b> on <span class="timestamp">${formatTimestamp(action.timestamp)}</span>`;
+    } else if (action.action === 'PULL_REQUEST') {
+        return `<b>${action.author}</b> submitted a pull request from <b>${action.from_branch}</b> to <b>${action.to_branch}</b> on <span class="timestamp">${formatTimestamp(action.timestamp)}</span>`;
+    } else if (action.action === 'MERGE') {
+        return `<b>${action.author}</b> merged branch <b>${action.from_branch}</b> to <b>${action.to_branch}</b> on <span class="timestamp">${formatTimestamp(action.timestamp)}</span>`;
+    } else {
+        return '';
+    }
+}
+
+function fetchFeed() {
+    const statusEl = document.getElementById('status');
+    statusEl.textContent = 'Fetching latest actions...';
+    
+    fetch(`${API_URL}/actions`)
+        .then(res => res.json())
+        .then(data => {
+            const feed = document.getElementById('feed');
+            feed.innerHTML = '';
+            
+            if (data.length === 0) {
+                statusEl.textContent = 'No actions found. Run test_webhook.py to generate sample data.';
+                return;
+            }
+            
+            data.forEach(action => {
+                const li = document.createElement('li');
+                li.innerHTML = renderAction(action);
+                feed.appendChild(li);
+            });
+            
+            statusEl.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+        })
+        .catch(err => {
+            console.error('Error fetching data:', err);
+            statusEl.textContent = 'Error connecting to server. Make sure webhook_receiver.py is running.';
+        });
+}
+
+fetchFeed();
+setInterval(fetchFeed, 15000);
+</script>
+</body>
+</html>
